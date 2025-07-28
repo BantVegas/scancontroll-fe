@@ -1,16 +1,24 @@
 import React from "react";
 
-export default function AppBackground({ children }: { children: React.ReactNode }) {
+type AppBackgroundProps = {
+  children: React.ReactNode;
+  className?: string;
+  [key: string]: any; // umožní ďalšie props (napr. id, style atď.)
+};
+
+export default function AppBackground({ children, className = "", ...rest }: AppBackgroundProps) {
   return (
     <div
-      className="min-h-screen min-w-full flex flex-col items-center justify-center relative"
+      className={`min-h-screen min-w-full flex flex-col items-center justify-center relative ${className}`}
       style={{
         backgroundImage: "url('/images/logo.png')",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
-        backgroundColor: "#979797", // fallback šedá
+        backgroundColor: "#979797",
+        ...(rest.style || {}),
       }}
+      {...rest}
     >
       <div
         className="absolute inset-0"
