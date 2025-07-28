@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+
+
 
 const windIcons = [
   "/images/A1.png",
