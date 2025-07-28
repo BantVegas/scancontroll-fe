@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 // @ts-ignore
 import Cropper from "react-cropper";
 import "cropperjs/dist/cropper.css";
@@ -7,7 +7,6 @@ import AppBackground from "./AppBackground";
 import { Tooltip } from "react-tooltip";
 import "react-tooltip/dist/react-tooltip.css";
 
-// ... (typy a utils ostávajú nezmenené)
 type BarcodeBox = {
   x: number;
   y: number;
@@ -23,7 +22,8 @@ type CroppedLabel = { url: string; w: number; h: number };
 
 const NAVIN_ROTATION = ["A2", "A4", "A1", "A3"] as const;
 const mmToPx = (mm: number, dpi = 96) => Math.round((mm / 25.4) * dpi);
-const API_BASE = "http://localhost:8080";
+// použitie .env (na deploy Vercel/Vite musíš mať nastavené VITE_API_BASE_URL!)
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 // Utils
 const rotateImage = (imageUrl: string, degrees: number): Promise<string> =>
@@ -70,7 +70,7 @@ async function markOcrFakeError(masterText: string, scanText: string, productNum
 function getLabelBoxes(result: any, labelIndex: number): BarcodeBox[] {
   const boxes: BarcodeBox[] = [];
   if (Array.isArray(result?.barcodeData)) {
-    for (const b of result.barcodeData) {
+    for (const b of result.barcodeData as any[]) {
       if (
         b.index === labelIndex &&
         Array.isArray(b.points) &&
@@ -91,7 +91,7 @@ function getLabelBoxes(result: any, labelIndex: number): BarcodeBox[] {
     }
   }
   if (Array.isArray(result?.ocrData)) {
-    for (const o of result.ocrData) {
+    for (const o of result.ocrData as any[]) {
       if (o.labelIndex === labelIndex && o.error) {
         boxes.push({
           x: o.x,
@@ -110,7 +110,7 @@ function getLabelBoxes(result: any, labelIndex: number): BarcodeBox[] {
   return boxes;
 }
 
-// --- OverlayCanvas (ostáva) ---
+// --- OverlayCanvas ---
 function OverlayCanvas({
   src,
   boxes,
@@ -141,7 +141,7 @@ function OverlayCanvas({
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
 
-      boxes.forEach((b) => {
+      boxes.forEach((b: BarcodeBox) => {
         ctx.save();
         const id = `${b.labelIndex}-${b.x}-${b.y}-${b.type}`;
         const ack = ackBoxes.has(id);
@@ -208,7 +208,7 @@ function OverlayCanvas({
   };
 
   const hoveredBox = boxes.find(
-    (b) => `${b.labelIndex}-${b.x}-${b.y}-${b.type}` === hovered
+    (b: BarcodeBox) => `${b.labelIndex}-${b.x}-${b.y}-${b.type}` === hovered
   );
 
   return (
@@ -249,6 +249,7 @@ function OverlayCanvas({
   );
 }
 
+// --- HLAVNÁ KOMPONENTA ---
 export default function CompareResult() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -274,7 +275,7 @@ export default function CompareResult() {
 
   const [productNumber, setProductNumber] = useState(produkt || "");
   const [productNumberTouched, setProductNumberTouched] = useState(false);
-  const [spoolNumber, setSpoolNumber] = useState(""); // <-- povinné všade!
+  const [spoolNumber, setSpoolNumber] = useState("");
   const [rows, setRows] = useState("");
   const [cols, setCols] = useState("");
   const [labelWidthMm, setLabelWidthMm] = useState("90");
@@ -348,13 +349,14 @@ export default function CompareResult() {
     inst.setDragMode("move");
   };
 
-  const getCropped = async (): Promise<Blob | null> => {
-    const inst = cropRef.current?.cropper;
-    if (!inst) return null;
-    const canvas = inst.getCroppedCanvas();
-    if (!canvas) return null;
-    return new Promise((res) => canvas.toBlob((b) => res(b), "image/png"));
-  };
+const getCropped = async (): Promise<Blob | null> => {
+  const inst = cropRef.current?.cropper;
+  if (!inst) return null;
+  const canvas = inst.getCroppedCanvas();
+  if (!canvas) return null;
+  return new Promise((res) => canvas.toBlob(res, "image/png"));
+};
+
 
   const finishCrop = async () => {
     if (!masterUrl) return;
@@ -564,7 +566,7 @@ export default function CompareResult() {
       let b64: string = data.pngBase64;
       setMasterUrl(b64);
       setMasterFile(null);
-      setSpoolNumber(m.spoolNumber || ""); // <-- predvyplní alebo nechá prázdne na doplnenie
+      setSpoolNumber(m.spoolNumber || "");
       setRows(m.rows || "");
       setCols(m.cols || "");
       setLabelWidthMm(m.labelWidthMm || "90");

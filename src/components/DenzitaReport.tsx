@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import AppBackground from "./AppBackground"; // uprav cestu podľa projektu
+import AppBackground from "./AppBackground";
+
 
 function rotateImage90(url: string): Promise<string> {
   return new Promise((resolve, reject) => {

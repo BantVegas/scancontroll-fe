@@ -1,12 +1,25 @@
 import React, { useState, useRef, useMemo, useEffect } from "react";
 import Cropper from "react-cropper";
+// ak chceš typovanie (ak nebude červené, nechaj, ak je stále červené, daj any)
+import type { ReactCropperElement } from "react-cropper";
 import "cropperjs/dist/cropper.css";
 import pantoneRaw from "../assets/pantone-colors.json";
 import { useNavigate } from "react-router-dom";
 
-const PANTONE = pantoneRaw;
 
-function hexToRgb(hex) {
+// Typovanie pre pantone
+type PantoneEntry = {
+  key: string;
+  name: string;
+  hex: string;
+  r: number;
+  g: number;
+  b: number;
+};
+
+const PANTONE: Record<string, string> = pantoneRaw as Record<string, string>;
+
+function hexToRgb(hex: string) {
   const h = hex.replace("#", "");
   return {
     r: parseInt(h.slice(0, 2), 16),
@@ -15,7 +28,7 @@ function hexToRgb(hex) {
   };
 }
 
-const preparedPantone = Object.entries(PANTONE).map(([name, hex]) => {
+const preparedPantone: PantoneEntry[] = Object.entries(PANTONE).map(([name, hex]) => {
   const rgb = hexToRgb(hex);
   return {
     key: name.replace(/[^a-zA-Z0-9]/g, "").toLowerCase(),
@@ -25,7 +38,7 @@ const preparedPantone = Object.entries(PANTONE).map(([name, hex]) => {
   };
 });
 
-function findPantone(term) {
+function findPantone(term: string) {
   if (!term) return undefined;
   const cleaned = term.trim().replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
   if (!cleaned) return undefined;
@@ -36,7 +49,7 @@ function findPantone(term) {
   );
 }
 
-const RATING_STYLE = {
+const RATING_STYLE: Record<string, string> = {
   "Výborné": "bg-green-500 text-white",
   "Dobre": "bg-yellow-400 text-gray-900",
   "Priemerné": "bg-orange-400 text-white",
@@ -44,7 +57,7 @@ const RATING_STYLE = {
   "Neznáme": "bg-gray-400 text-white"
 };
 
-function ratingToHuman(rating, percent) {
+function ratingToHuman(rating: string, percent: string | number) {
   if (rating === "Výborné") return `Farba je takmer identická (${percent}% zhoda)`;
   if (rating === "Dobre") return `Farba je veľmi podobná (${percent}% zhoda)`;
   if (rating === "Priemerné") return `Viditeľný rozdiel vo farbe (${percent}% zhoda)`;
@@ -53,13 +66,13 @@ function ratingToHuman(rating, percent) {
 }
 
 export default function PantoneCompare() {
-  const [pantoneCode, setPantoneCode] = useState("");
-  const [cropUrl, setCropUrl] = useState(null);
-  const [resultObj, setResultObj] = useState(null);
+  const [pantoneCode, setPantoneCode] = useState<string>("");
+  const [cropUrl, setCropUrl] = useState<string | null>(null);
+  const [resultObj, setResultObj] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState(false);
-  const [operator, setOperator] = useState("");
-  const [productCode, setProductCode] = useState("");
+  const [operator, setOperator] = useState<string>("");
+  const [productCode, setProductCode] = useState<string>("");
   const [datetime, setDatetime] = useState(() => {
     const now = new Date();
     return now.toLocaleString("sk-SK", {
@@ -67,9 +80,9 @@ export default function PantoneCompare() {
       hour: "2-digit", minute: "2-digit", second: "2-digit"
     });
   });
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState<string>("");
   const [showPalette, setShowPalette] = useState(false);
-  const cropperRef = useRef(null);
+  const cropperRef = useRef<ReactCropperElement>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -97,6 +110,7 @@ export default function PantoneCompare() {
   async function handleCompare() {
     if (!entry || !cropperRef.current || !operator || !productCode) return;
     const cropper = cropperRef.current.cropper;
+    if (!cropper) return;
     const croppedDataUrl = cropper.getCroppedCanvas({ width: 100, height: 100 }).toDataURL();
     const base64 = croppedDataUrl.split(",")[1];
 
@@ -132,7 +146,7 @@ export default function PantoneCompare() {
       setTimeout(() => {
         navigate("/dashboardreport");
       }, 1000);
-    } catch (e) {
+    } catch (e: any) {
       setResultObj(null);
       alert("Chyba porovnania: " + e.message);
     } finally {
@@ -280,7 +294,7 @@ export default function PantoneCompare() {
                   return;
                 }
                 const reader = new FileReader();
-                reader.onload = ev => setCropUrl(ev.target?.result);
+                reader.onload = ev => setCropUrl(ev.target?.result as string);
                 reader.readAsDataURL(file);
               }}
             />
@@ -365,6 +379,7 @@ export default function PantoneCompare() {
     </div>
   );
 }
+
 
 
 
