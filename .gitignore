@@ -1,0 +1,35 @@
+# ----------------------
+# Logy
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ----------------------
+# Build výstupy
+dist
+dist-ssr
+
+# ----------------------
+# Lokálne nastavenia
+*.local
+.env
+
+# ----------------------
+# Node.js závislosti
+node_modules
+
+# ----------------------
+# IDE a editor súbory
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
