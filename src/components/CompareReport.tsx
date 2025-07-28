@@ -29,10 +29,11 @@ interface LocationState {
 }
 
 // Získa URL z env (VITE_API_URL musíš mať nastavené v .env)
-const API_URL = import.meta.env.VITE_API_URL;
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+
 
 async function saveReportToServer(report: any) {
-  const res = await fetch(`${API_URL}/api/report/save`, {
+  const res = await fetch(`${API_BASE}/api/report/save`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(report),
