@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import Cropper from "react-cropper";
 // ak chceš typovanie (ak nebude červené, nechaj, ak je stále červené, daj any)
 import type { ReactCropperElement } from "react-cropper";
