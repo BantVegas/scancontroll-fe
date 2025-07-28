@@ -1,11 +1,9 @@
 import { useState, useRef, useMemo, useEffect } from "react";
 import Cropper from "react-cropper";
-// ak chceš typovanie (ak nebude červené, nechaj, ak je stále červené, daj any)
 import type { ReactCropperElement } from "react-cropper";
 import "cropperjs/dist/cropper.css";
 import pantoneRaw from "../assets/pantone-colors.json";
 import { useNavigate } from "react-router-dom";
-
 
 // Typovanie pre pantone
 type PantoneEntry = {
@@ -85,6 +83,10 @@ export default function PantoneCompare() {
   const cropperRef = useRef<ReactCropperElement>(null);
   const navigate = useNavigate();
 
+  // Dynamická BASE_URL
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+  const BACKEND_URL = `${API_BASE}/api/pantone/compare`;
+
   useEffect(() => {
     const intv = setInterval(() => {
       const now = new Date();
@@ -104,8 +106,6 @@ export default function PantoneCompare() {
     return pantoneEntries.filter((p) => p.name.toLowerCase().includes(term));
   }, [query, pantoneEntries]);
   const entry = findPantone(pantoneCode);
-
-  const BACKEND_URL = "http://localhost:8080/api/pantone/compare";
 
   async function handleCompare() {
     if (!entry || !cropperRef.current || !operator || !productCode) return;

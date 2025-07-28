@@ -28,8 +28,11 @@ interface LocationState {
   croppedLabels?: CroppedLabel[];
 }
 
+// Získa URL z env (VITE_API_URL musíš mať nastavené v .env)
+const API_URL = import.meta.env.VITE_API_URL;
+
 async function saveReportToServer(report: any) {
-  const res = await fetch("http://localhost:8080/api/report/save", {
+  const res = await fetch(`${API_URL}/api/report/save`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(report),
@@ -43,6 +46,7 @@ async function saveReportToServer(report: any) {
     return false;
   }
 }
+
 
 export default function CompareReport() {
   const { state = {} } = useLocation();
