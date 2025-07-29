@@ -140,7 +140,7 @@ function OperatorForm({ role }: { role: string }) {
           Vyber stroj
         </option>
         <option value="Gidue">Gidue</option>
-        <option value="X4">X4</option>
+        <option value="X 4">X4</option>
         <option value="X6">X6</option>
         <option value="Gallus">Gallus</option>
       </select>
