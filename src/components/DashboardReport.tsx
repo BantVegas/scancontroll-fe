@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import AppBackground from "./AppBackground";
 import { CheckCircle2, Info } from "lucide-react";
 
+// Automaticky načítaj BASE URL pre API z .env súboru (VITE_API_BASE_URL)
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+
 type ScanReport = {
   id: number;
   reportType: string;
@@ -45,12 +48,13 @@ export default function DashboardReport() {
 
   useEffect(() => {
     fetchReports();
+    // eslint-disable-next-line
   }, []);
 
   async function fetchReports() {
     setLoading(true);
     try {
-      const res = await fetch("/api/report");
+      const res = await fetch(`${API_BASE}/api/report`);
       const data = await res.json();
       setReports(data);
     } catch {
@@ -62,7 +66,7 @@ export default function DashboardReport() {
 
   async function handleDelete(id: number) {
     if (!window.confirm("Naozaj chceš vymazať tento report?")) return;
-    await fetch(`/api/report/${id}`, { method: "DELETE" });
+    await fetch(`${API_BASE}/api/report/${id}`, { method: "DELETE" });
     setReports((prev) => prev.filter((r) => r.id !== id));
     setModalDetail(null);
   }
@@ -118,7 +122,6 @@ export default function DashboardReport() {
     try {
       if (report.detailsJson) {
         const parsed = JSON.parse(report.detailsJson);
-        // Ak detailsJson je číslo/cyklus (zlé ukladanie), tak použijeme iba pôvodný report
         if (typeof parsed === "object" && parsed !== null) {
           detail = { ...report, ...parsed };
         }
@@ -285,12 +288,7 @@ export default function DashboardReport() {
             <span className="text-gray-500 ml-auto">{r.datetime}</span>
           </div>
           <hr className="my-2" />
-          {[
-            { key: "cyan", value: cyan },
-            { key: "magenta", value: magenta },
-            { key: "yellow", value: yellow },
-            { key: "black", value: black },
-          ].map(({ key, value }) => (
+          {[{ key: "cyan", value: cyan }, { key: "magenta", value: magenta }, { key: "yellow", value: yellow }, { key: "black", value: black }].map(({ key, value }) => (
             <div key={key} className="flex items-center mb-1 text-lg">
               <div
                 className="w-7 h-7 rounded mr-4 border-2 border-gray-300"
@@ -576,6 +574,7 @@ export default function DashboardReport() {
     </AppBackground>
   );
 }
+
 
 
 
