@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import AppBackground from "./AppBackground";
 
+// Automaticky načítaj BASE URL pre API z .env súboru (VITE_API_BASE_URL)
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 function rotateImage90(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -60,7 +62,7 @@ export default function DenzitaReport() {
       setError("Zadaj číslo produktu");
       return;
     }
-    setMasterUrl(`/api/master/image?productNumber=${produkt}`);
+    setMasterUrl(`${API_BASE}/api/master/image?productNumber=${produkt}`);
   }
 
   async function handleRotateMaster() {
@@ -87,7 +89,7 @@ export default function DenzitaReport() {
       form.append("productNumber", produkt);
       if (operator) form.append("operator", operator);
 
-      const res = await fetch("/api/denzita-compare", { method: "POST", body: form });
+      const res = await fetch(`${API_BASE}/api/denzita-compare`, { method: "POST", body: form });
       if (!res.ok) throw new Error("Chyba servera");
       setResult(await res.json());
     } catch (e: any) {
@@ -120,7 +122,7 @@ export default function DenzitaReport() {
     };
 
     try {
-      const res = await fetch("/api/denzita-report", {
+      const res = await fetch(`${API_BASE}/api/denzita-report`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(report)

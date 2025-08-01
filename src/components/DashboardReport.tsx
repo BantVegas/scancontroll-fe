@@ -3,7 +3,7 @@ import AppBackground from "./AppBackground";
 import { CheckCircle2, Info } from "lucide-react";
 
 // Automaticky načítaj BASE URL pre API z .env súboru (VITE_API_BASE_URL)
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 type ScanReport = {
   id: number;

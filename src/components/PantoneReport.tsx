@@ -5,7 +5,7 @@ import "cropperjs/dist/cropper.css";
 import pantoneRaw from "../assets/pantone-colors.json";
 import { useNavigate } from "react-router-dom";
 
-// Typovanie pre pantone
+// Typovanie pre Pantone
 type PantoneEntry = {
   key: string;
   name: string;
@@ -63,6 +63,9 @@ function ratingToHuman(rating: string, percent: string | number) {
   return "Výsledok nie je možné určiť";
 }
 
+// Správna BASE_URL pre všetky fetch požiadavky
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+
 export default function PantoneCompare() {
   const [pantoneCode, setPantoneCode] = useState<string>("");
   const [cropUrl, setCropUrl] = useState<string | null>(null);
@@ -82,10 +85,6 @@ export default function PantoneCompare() {
   const [showPalette, setShowPalette] = useState(false);
   const cropperRef = useRef<ReactCropperElement>(null);
   const navigate = useNavigate();
-
-  // Dynamická BASE_URL
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
-  const BACKEND_URL = `${API_BASE}/api/pantone/compare`;
 
   useEffect(() => {
     const intv = setInterval(() => {
@@ -127,7 +126,7 @@ export default function PantoneCompare() {
     };
 
     try {
-      const res = await fetch(BACKEND_URL, {
+      const res = await fetch(`${API_BASE}/api/pantone/compare`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(reqBody),
@@ -136,7 +135,7 @@ export default function PantoneCompare() {
       const data = await res.json();
       setResultObj(data);
 
-      // --- Ulož do localStorage pre dashboard ---
+      // --- Ulož do localStorage pre dashboard (voliteľné, môžeš odstrániť ak používate len backend persistenciu) ---
       const saved = JSON.parse(localStorage.getItem("pantoneReports") || "[]");
       localStorage.setItem("pantoneReports", JSON.stringify([
         ...saved,
@@ -379,6 +378,7 @@ export default function PantoneCompare() {
     </div>
   );
 }
+
 
 
 
