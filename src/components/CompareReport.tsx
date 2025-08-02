@@ -4,10 +4,25 @@ import AppBackground from "./AppBackground";
 
 const DIFF_LIMIT = 2.5;
 
+// Typy zodpovedajú CompareResult!
+type DetectedError = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  acknowledged?: boolean;
+};
+type CroppedLabel = {
+  url: string;
+  w: number;
+  h: number;
+  ok?: boolean;
+  detectedErrors?: DetectedError[];
+};
+
 type BarcodeItem = { index: number; valid: boolean; error?: string | null };
 type OcrItem = { labelIndex: number; error?: string | null };
 type ColorItem = { labelIndex?: number; summary?: string; cyan?: any; magenta?: any; yellow?: any; black?: any };
-type CroppedLabel = { url: string; w: number; h: number; ok?: boolean };
 
 interface LocationState {
   operator?: string;
@@ -28,9 +43,7 @@ interface LocationState {
   croppedLabels?: CroppedLabel[];
 }
 
-// Získa URL z env (VITE_API_URL musíš mať nastavené v .env)
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
-
 
 async function saveReportToServer(report: any) {
   const res = await fetch(`${API_BASE}/api/report/save`, {
@@ -48,12 +61,10 @@ async function saveReportToServer(report: any) {
   }
 }
 
-
 export default function CompareReport() {
   const { state = {} } = useLocation();
   const navigate = useNavigate();
 
-  // Rozbalenie údajov + fallbacky
   const {
     operator = "",
     jobNumber,
@@ -73,7 +84,6 @@ export default function CompareReport() {
     croppedLabels = [],
   } = state as LocationState;
 
-  // Fallback aj na string (niekedy je v query)
   function getSafeValue(primary?: string, secondary?: string, paramName?: string) {
     if (primary && typeof primary === "string" && primary.trim() && primary !== "-") return primary;
     if (secondary && typeof secondary === "string" && secondary.trim() && secondary !== "-") return secondary;
@@ -89,7 +99,6 @@ export default function CompareReport() {
   const _productCode = getSafeValue(productNumber, produkt, "productNumber");
   const _machine = machine ?? stroj ?? "-";
 
-  // *** VŽDY AKTUÁLNY ČAS ***
   const _datetime = useMemo(() => {
     return new Date().toLocaleString("sk-SK", {
       hour12: false,
@@ -135,7 +144,6 @@ export default function CompareReport() {
       return;
     }
 
-    // POSIELAJ VŠETKY DÁTUMY ROVNAKO
     const report = {
       reportType: "COMPARE",
       operator,
@@ -216,6 +224,80 @@ export default function CompareReport() {
     );
   }
 
+  function renderErrorOverlay(label: CroppedLabel) {
+    if (!label.detectedErrors || !Array.isArray(label.detectedErrors)) return null;
+    const errors = label.detectedErrors.filter(e => !e.acknowledged);
+    if (errors.length === 0) return null;
+    return (
+      <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
+        {errors.map((err, i) => {
+          const x = label.w ? (err.x / label.w) * 100 : 0;
+          const y = label.h ? (err.y / label.h) * 100 : 0;
+          const width = label.w ? (err.width / label.w) * 100 : 100;
+          const height = label.h ? (err.height / label.h) * 100 : 100;
+          return (
+            <div
+              key={i}
+              style={{
+                position: "absolute",
+                left: `${x}%`,
+                top: `${y}%`,
+                width: `${width}%`,
+                height: `${height}%`,
+                border: "2px solid #e11d48",
+                boxSizing: "border-box",
+                pointerEvents: "none",
+                borderRadius: "4px",
+              }}
+            />
+          );
+        })}
+      </div>
+    );
+  }
+
+  function renderLabels() {
+    return (
+      <div className="mt-6 px-6 pb-20 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-12 gap-y-16 max-w-[1440px] mx-auto">
+        {croppedLabels.map((label, i) => (
+          <div key={i} className="flex flex-col items-center">
+            <div
+              className="relative rounded-xl shadow-md border border-gray-200 object-contain"
+              style={{
+                width: 260,
+                height: 360,
+                background: "#f9f9f9",
+                overflow: "hidden",
+              }}
+            >
+              <img
+                src={label.url}
+                alt={`Etiketa č.${i + 1}`}
+                className="w-full h-full object-contain rounded-xl"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  height: "100%",
+                  userSelect: "none",
+                  pointerEvents: "auto"
+                }}
+                draggable={false}
+              />
+              {renderErrorOverlay(label)}
+            </div>
+            <div className="mt-2 font-semibold text-base text-gray-700">
+              Etiketa č.{i + 1}
+            </div>
+            <div className="text-xs text-gray-500">
+              {label.w} × {label.h} px
+            </div>
+            {getLabelBadge(i + 1)}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   function renderColorTable() {
     if (!Array.isArray(colorData) || colorData.length === 0) return null;
     const fmt = (n: any) =>
@@ -253,19 +335,17 @@ export default function CompareReport() {
         );
       });
     }
-
     return (
-      <div className="mt-12 w-full max-w-5xl mx-auto">
+      <div className="mt-12 w-full max-w-4xl mx-auto">
         <h3 className="font-bold text-lg mb-3">
           Vyhodnotenie farebnosti (CMYK)
         </h3>
         <table className="w-full bg-white rounded shadow text-sm">
           <thead>
             <tr className="border-b text-gray-700">
-              <th className="py-2 px-3 text-left">Etiketa</th>
-              <th className="py-2 px-3 text-left">C/M/Y/K etiketa</th>
-              <th className="py-2 px-3 text-left">Rozdiel C/M/Y/K</th>
-              <th className="py-2 px-3 text-left">Výsledok</th>
+              <th className="py-2 px-3 text-left w-1/6">Etiketa</th>
+              <th className="py-2 px-3 text-left w-2/6">C/M/Y/K etiketa</th>
+              <th className="py-2 px-3 text-left w-3/6">Rozdiel C/M/Y/K</th>
             </tr>
           </thead>
           <tbody>
@@ -283,15 +363,6 @@ export default function CompareReport() {
                     C:{fmt(cy.etiketa)}&nbsp; M:{fmt(mg.etiketa)}&nbsp; Y:{fmt(yl.etiketa)}&nbsp; K:{fmt(bk.etiketa)}
                   </td>
                   <td className="py-2 px-3">{formatDiffSegments(c)}</td>
-                  <td className="py-2 px-3">
-                    {c.summary === "OK" ? (
-                      <span className="text-green-700 font-bold">OK</span>
-                    ) : (
-                      <span className="text-red-600 font-bold">
-                        {c.summary || "Chyba"}
-                      </span>
-                    )}
-                  </td>
                 </tr>
               );
             })}
@@ -304,14 +375,11 @@ export default function CompareReport() {
     );
   }
 
-  // --- RENDER ---
   return (
     <AppBackground className="bg-white min-h-screen">
       <div className="flex flex-col md:flex-row w-full max-w-[1440px] mx-auto py-8 px-6 gap-8">
-        {/* Ľavý SUMMARY panel */}
         <div className="flex flex-col gap-3 min-w-[400px] max-w-[600px] bg-white/95 p-8 rounded-2xl shadow border border-gray-200">
           <h1 className="font-bold text-3xl mb-5 mt-2">Výsledky porovnania etikiet</h1>
-          {/* NAVIN výsledok */}
           <div className="text-lg mb-2">
             <b>NAVIN:</b>{" "}
             {windResult === "OK" ? (
@@ -367,8 +435,6 @@ export default function CompareReport() {
             </div>
           )}
         </div>
-
-        {/* Pravý panel - údaje */}
         <div className="flex-1 flex flex-col md:items-end items-start">
           <div className="bg-white/90 rounded-xl p-7 shadow max-w-xl w-full mb-6 border border-gray-300">
             <div className="font-bold text-2xl mb-3">Výsledky kontroly etikiet</div>
@@ -391,29 +457,8 @@ export default function CompareReport() {
           </div>
         </div>
       </div>
-
-      {/* Grid etikiet s badge pod obrázkom */}
-      <div className="mt-6 px-6 pb-20 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-12 gap-y-16 max-w-[1440px] mx-auto">
-        {croppedLabels.map((label, i) => (
-          <div key={i} className="flex flex-col items-center">
-            <img
-              src={label.url}
-              alt={`Etiketa č.${i + 1}`}
-              className="rounded-xl shadow-md border border-gray-200 object-contain"
-              style={{ width: 260, height: 360, background: "#f9f9f9" }}
-            />
-            <div className="mt-2 font-semibold text-base text-gray-700">
-              Etiketa č.{i + 1}
-            </div>
-            <div className="text-xs text-gray-500">
-              {label.w} × {label.h} px
-            </div>
-            {getLabelBadge(i + 1)}
-          </div>
-        ))}
-      </div>
-
-      {/* Poznámka od operátora */}
+      {/* Grid etikiet s overlayom a badge */}
+      {renderLabels()}
       <div className="max-w-4xl w-full mx-auto mt-10 mb-10 px-4">
         <label className="block mb-2 font-semibold text-xl text-gray-800">
           Poznámka operátora:
@@ -425,11 +470,7 @@ export default function CompareReport() {
           onChange={e => setNote(e.target.value)}
         />
       </div>
-
-      {/* Tabuľka farebnosti */}
       {renderColorTable()}
-
-      {/* Akcie - tlačidlá */}
       <div className="flex gap-8 mt-12 justify-center print:hidden mb-24">
         <button
           onClick={handleSave}
@@ -448,6 +489,10 @@ export default function CompareReport() {
     </AppBackground>
   );
 }
+
+
+
+
 
 
 
