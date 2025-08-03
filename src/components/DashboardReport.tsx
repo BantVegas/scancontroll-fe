@@ -13,7 +13,7 @@ type ScanReport = {
   jobNumber?: string;
   machine?: string;
   datetime: string;
-  detailsJson?: string;
+  detailsJson?: any; // zmenené na any kvôli objektu aj string fallbacku
   etikety?: any[];
   windResult?: string;
   detectedWind?: string;
@@ -116,18 +116,22 @@ export default function DashboardReport() {
     return null;
   }
 
-  // UNIVERZÁLNY detail merge pre všetky typy reportov
+  // UNIVERZÁLNY detail merge pre všetky typy reportov (objekt, fallback na string)
   function parseDetails(report: ScanReport) {
-    let detail: any = { ...report };
-    try {
-      if (report.detailsJson) {
+    // Nový backend: objekt
+    if (report.detailsJson && typeof report.detailsJson === "object") {
+      return { ...report, ...report.detailsJson };
+    }
+    // Starý backend: string
+    if (report.detailsJson && typeof report.detailsJson === "string") {
+      try {
         const parsed = JSON.parse(report.detailsJson);
         if (typeof parsed === "object" && parsed !== null) {
-          detail = { ...report, ...parsed };
+          return { ...report, ...parsed };
         }
-      }
-    } catch {}
-    return detail;
+      } catch {}
+    }
+    return report;
   }
 
   function renderDetailCard(r: ScanReport) {
@@ -574,6 +578,7 @@ export default function DashboardReport() {
     </AppBackground>
   );
 }
+
 
 
 
