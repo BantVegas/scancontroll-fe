@@ -1,9 +1,27 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import AppBackground from "./AppBackground";
 
-// Automaticky načítaj BASE URL pre API z .env súboru (VITE_API_BASE_URL)
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+
+type CmykResult = {
+  rel_rozdiel: number;
+  etiketa?: number;
+  master?: number;
+};
+
+const CMYK: Record<string, string> = {
+  cyan: "#22d3ee",
+  magenta: "#f472b6",
+  yellow: "#fde047",
+  black: "#222",
+};
+const NAMES: Record<string, string> = {
+  cyan: "Cyan",
+  magenta: "Magenta",
+  yellow: "Yellow",
+  black: "Black",
+};
 
 function rotateImage90(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -27,23 +45,17 @@ function rotateImage90(url: string): Promise<string> {
   });
 }
 
-const CMYK = {
-  cyan: "#22d3ee",
-  magenta: "#f472b6",
-  yellow: "#fde047",
-  black: "#222",
-};
-const NAMES = { cyan: "Cyan", magenta: "Magenta", yellow: "Yellow", black: "Black" };
-
 export default function DenzitaReport() {
   const [operator, setOperator] = useState("");
   const [produkt, setProdukt] = useState("");
   const [datum, setDatum] = useState("");
   const [cas, setCas] = useState("");
-  const [masterUrl, setMasterUrl] = useState<string | null>(null);
+  const [masterUrl, setMasterUrl] = useState<string | null>(null);      // BE master
+  const [masterFile, setMasterFile] = useState<File | null>(null);      // upload z PC
+  const [masterFileUrl, setMasterFileUrl] = useState<string | null>(null);
   const [etiketa, setEtiketa] = useState<File | null>(null);
   const [etiketaUrl, setEtiketaUrl] = useState<string | null>(null);
-  const [result, setResult] = useState<any | null>(null);
+  const [result, setResult] = useState<Record<string, CmykResult> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,9 +67,12 @@ export default function DenzitaReport() {
     setCas(now.toTimeString().slice(0, 5));
   }, []);
 
+  // Načíta master z backendu podľa productNumber
   function loadMasterFromDisk() {
     setError(null);
     setResult(null);
+    setMasterFile(null);
+    setMasterFileUrl(null);
     if (!produkt.trim()) {
       setError("Zadaj číslo produktu");
       return;
@@ -65,21 +80,31 @@ export default function DenzitaReport() {
     setMasterUrl(`${API_BASE}/api/master/image?productNumber=${produkt}`);
   }
 
-  async function handleRotateMaster() {
-    if (!masterUrl) return;
-    setLoading(true);
-    try {
-      const rotated = await rotateImage90(masterUrl);
-      setMasterUrl(rotated);
-    } catch {
-      setError("Chyba pri rotácii obrázka");
-    } finally {
-      setLoading(false);
+  // Upload master etikety z ĽUBOVOĽNÉHO zdroja
+  function handleUploadMaster(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files && e.target.files[0];
+    if (file) {
+      setMasterFile(file);
+      setMasterFileUrl(URL.createObjectURL(file));
+      setMasterUrl(null); // zruš backend URL
     }
   }
 
+  // Upload etikety (vždy súbor)
+  function handleUploadEtiketa(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files && e.target.files[0];
+    if (file) {
+      setEtiketa(file);
+      setEtiketaUrl(URL.createObjectURL(file));
+    }
+  }
+
+  // Porovnanie etikiet (POST na /api/denzita-compare)
   async function handleCompare() {
-    if (!etiketa || !produkt) return;
+    if (!etiketa || !produkt.trim()) {
+      setError("Vyber etiketu a zadaj produktové číslo!");
+      return;
+    }
     setLoading(true);
     setError(null);
     setResult(null);
@@ -87,10 +112,19 @@ export default function DenzitaReport() {
       const form = new FormData();
       form.append("etiketa", etiketa);
       form.append("productNumber", produkt);
+      if (masterFile) {
+        form.append("master", masterFile);
+      }
       if (operator) form.append("operator", operator);
 
-      const res = await fetch(`${API_BASE}/api/denzita-compare`, { method: "POST", body: form });
-      if (!res.ok) throw new Error("Chyba servera");
+      const res = await fetch(`${API_BASE}/api/denzita-compare`, {
+        method: "POST",
+        body: form,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Chyba servera");
+      }
       setResult(await res.json());
     } catch (e: any) {
       setError(e.message || "Chyba porovnania");
@@ -99,7 +133,21 @@ export default function DenzitaReport() {
     }
   }
 
-  // === OPRAVENÁ časť: SAVE ===
+  async function handleRotateMaster() {
+    const url = masterFileUrl || masterUrl;
+    if (!url) return;
+    setLoading(true);
+    try {
+      const rotated = await rotateImage90(url);
+      if (masterFileUrl) setMasterFileUrl(rotated);
+      else setMasterUrl(rotated);
+    } catch {
+      setError("Chyba pri rotácii obrázka");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSaveReport() {
     if (!result || !produkt) {
       setError("Najprv porovnaj etikety.");
@@ -107,8 +155,6 @@ export default function DenzitaReport() {
     }
     setLoading(true);
     setError(null);
-
-    // Extrahuj rel_rozdiel (alebo iný údaj – podľa backendu)
     const report = {
       operator: operator || "",
       productCode: produkt,
@@ -118,14 +164,13 @@ export default function DenzitaReport() {
       yellow: typeof result.yellow?.rel_rozdiel === "number" ? result.yellow.rel_rozdiel : null,
       black: typeof result.black?.rel_rozdiel === "number" ? result.black.rel_rozdiel : null,
       summary: "OK",
-      reportType: "DENZITA"
+      reportType: "DENZITA",
     };
-
     try {
       const res = await fetch(`${API_BASE}/api/denzita-report`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(report)
+        body: JSON.stringify(report),
       });
       if (!res.ok) throw new Error("Chyba pri ukladaní reportu");
       navigate("/dashboardreport");
@@ -136,7 +181,7 @@ export default function DenzitaReport() {
     }
   }
 
-  function renderCMYKRow(chan: string, val: any) {
+  function renderCMYKRow(chan: string, val?: CmykResult) {
     if (!val) return null;
     const delta = val.rel_rozdiel;
     let vyhodnotenie = (
@@ -146,7 +191,7 @@ export default function DenzitaReport() {
       vyhodnotenie = (
         <span
           className="font-bold ml-4"
-          style={{ color: delta > 0 ? CMYK[chan as keyof typeof CMYK] : "#be185d" }}
+          style={{ color: delta > 0 ? CMYK[chan] : "#be185d" }}
         >
           {delta > 0 ? "Pridať" : "Ubrať"} {Math.abs(delta)}%
         </span>
@@ -160,8 +205,8 @@ export default function DenzitaReport() {
       <div className="flex flex-row items-center mb-3 text-lg" key={chan} title={tooltip}>
         <div
           className="w-7 h-7 rounded mr-4"
-          style={{ background: CMYK[chan as keyof typeof CMYK], border: "2px solid #bbb" }}
-          title={NAMES[chan as keyof typeof NAMES]}
+          style={{ background: CMYK[chan], border: "2px solid #bbb" }}
+          title={NAMES[chan]}
         />
         {vyhodnotenie}
       </div>
@@ -170,10 +215,7 @@ export default function DenzitaReport() {
 
   return (
     <AppBackground>
-      <div
-        className="min-h-screen w-full flex flex-col items-center justify-center py-8 relative"
-        style={{ minHeight: "100vh" }}
-      >
+      <div className="min-h-screen w-full flex flex-col items-center justify-center py-8 relative">
         <h2 className="text-3xl font-extrabold mb-4 text-gray-900 text-center tracking-tight">
           Porovnanie denzity etikiet
         </h2>
@@ -212,15 +254,37 @@ export default function DenzitaReport() {
         <div className="flex flex-row gap-24 w-full max-w-4xl justify-center items-start mb-6">
           {/* Master */}
           <div className="flex flex-col items-center flex-1">
-            <button
-              className="mb-2 w-[270px] bg-blue-700 text-white font-bold py-2 rounded-lg hover:bg-blue-800"
-              onClick={loadMasterFromDisk}
-              type="button"
-              disabled={loading || !produkt}
-            >
-              Načítať master z disku
-            </button>
-            {masterUrl ? (
+            <div className="flex gap-3 mb-3">
+              <button
+                className="w-[170px] bg-blue-700 text-white font-bold py-2 rounded-lg hover:bg-blue-800"
+                onClick={loadMasterFromDisk}
+                type="button"
+                disabled={loading || !produkt}
+              >
+                Načítať master z disku
+              </button>
+              <label
+                className="w-[170px] bg-gray-600 text-white font-bold py-2 rounded-lg hover:bg-gray-800 text-center cursor-pointer"
+                style={{ display: "inline-block" }}
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={handleUploadMaster}
+                  disabled={loading}
+                />
+                Nahrať master z PC
+              </label>
+            </div>
+            {masterFileUrl ? (
+              <img
+                src={masterFileUrl}
+                alt="master-upload"
+                className="rounded-xl border border-gray-200 mb-2 max-w-[320px] max-h-[210px] object-contain"
+                style={{ background: "#fafafa" }}
+              />
+            ) : masterUrl ? (
               <img
                 src={masterUrl}
                 alt="master"
@@ -232,7 +296,7 @@ export default function DenzitaReport() {
                 Master etiketa
               </div>
             )}
-            {masterUrl && (
+            {(masterUrl || masterFileUrl) && (
               <button
                 className="bg-gray-800 text-white px-4 py-1 rounded-lg font-medium flex items-center gap-2 hover:bg-black"
                 onClick={handleRotateMaster}
@@ -250,11 +314,7 @@ export default function DenzitaReport() {
               type="file"
               accept="image/*"
               className="mb-4 w-[270px]"
-              onChange={e => {
-                const file = e.target.files?.[0] ?? null;
-                setEtiketa(file);
-                setEtiketaUrl(file ? URL.createObjectURL(file) : null);
-              }}
+              onChange={handleUploadEtiketa}
               disabled={loading}
             />
             {etiketaUrl ? (
@@ -275,7 +335,7 @@ export default function DenzitaReport() {
           <button
             className="bg-green-700 text-white font-bold px-8 py-3 rounded-xl text-lg hover:bg-green-800"
             onClick={handleCompare}
-            disabled={!masterUrl || !etiketa || loading}
+            disabled={(!masterUrl && !masterFileUrl && !masterFile) || !etiketa || loading}
           >
             {loading ? "Porovnávam..." : "Porovnať"}
           </button>
@@ -307,13 +367,5 @@ export default function DenzitaReport() {
     </AppBackground>
   );
 }
-
-
-
-
-
-
-
-
 
 
